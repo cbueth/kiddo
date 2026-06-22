@@ -1,48 +1,121 @@
+#![cfg_attr(
+    all(kiddo_nightly, target_arch = "aarch64"),
+    feature(stdarch_aarch64_prefetch)
+)]
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![warn(rustdoc::missing_crate_level_docs)]
 #![deny(rustdoc::invalid_codeblock_attributes)]
 #![warn(missing_docs)]
 #![warn(rustdoc::broken_intra_doc_links)]
 #![warn(rustdoc::private_intra_doc_links)]
-#![doc(html_root_url = "https://docs.rs/kiddo/5.2.0")]
+#![doc(html_root_url = "https://docs.rs/kiddo/6.0.0-alpha.1")]
 #![doc(issue_tracker_base_url = "https://github.com/sdd/kiddo/issues/")]
+#![allow(clippy::pointers_in_nomem_asm_block)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::needless_range_loop)]
 
 //! # Kiddo
 //!
-//! A high-performance, flexible, ergonomic [k-d tree](https://en.wikipedia.org/wiki/K-d_tree) library.
+//! A high-performance k-d tree library for exact and approximate nearest-neighbour
+//! queries in low-dimensional spaces.
 //!
-//! Possibly the fastest k-d tree library in the world? [See for yourself](https://sdd.github.io/kd-tree-comparison-webapp/).
+//! Built with an aggressive focus on query performance, including cache-aware
+//! layouts and optional SIMD-accelerated code paths. See the companion
+//! benchmarking site to compare Kiddo against other k-d tree implementations
+//! across a range of workloads.
 //!
-//! Kiddo provides:
-//! - A standard floating-point k-d tree, exposed as [`kiddo::KdTree`](`crate::KdTree`), for when you may need to add or remove
-//!   points to the tree after the initial construction / deserialization
-//! - An [`ImmutableKdTree`](`immutable::float::kdtree::ImmutableKdTree`) with performance and space advantages over the standard
-//!   k-d tree, for situations where the tree does not need to be modified after creation
-//! - **integer / fixed point support** via the [`fixed`](https://docs.rs/fixed/latest/fixed/) crate;
-//! - **`f16` support** via the [`half`](https://docs.rs/half/latest/half/) crate;
-//! - **instant zero-copy deserialization** and serialisation via [`Rkyv`](https://docs.rs/rkyv/latest/rkyv/) ([`Serde`](https://docs.rs/serde/latest/serde/) still available).
-
+//! Kiddo v6 provides a single generic [`KdTree`] that supports floating-point
+//! (`f64`, `f32`, `f16`), selected fixed-point (via the `fixed` crate), and
+//! unsigned-integer (`u8`, `u16`, `u32`) types as coordinates, along with both mutable
+//! and immutable usage patterns.
 //!
-//! Kiddo is ideal for superfast spatial / geospatial lookups and nearest-neighbour / KNN
-//! queries for low-ish numbers of dimensions, where you want to ask questions such as:
-//!  - Find the [nearest_n](`float::kdtree::KdTree::nearest_n`) item(s) to a query point, ordered by distance;
-//!  - Find all items [within](`float::kdtree::KdTree::within`) a specified radius of a query point;
-//!  - Find the ["best" n item(s) within](`float::kdtree::KdTree::best_n_within`) a specified distance of a query point, for some definition of "best",
-//!    For example, "give me the 5 largest settlements within 50km of a given point, ordered by descending population", or "the 5 brightest stars
-//!    within a degree of a point on the sky, ordered by brightest first".
+//! Kiddo is designed for low-dimensional (< ~10D) search problems, especially 2D, 3D,
+//! and 4D workloads. Typical use cases include point-cloud analysis,
+//! astronomical catalogue crossmatching, colour quantization and palette
+//! lookup, local neighbourhood queries in simulations, and other
+//! nearest-neighbour and radius-search tasks. Kiddo has been used for diverse
+//! geographical and scientific workloads including geocoding, astronomy,
+//! cosmology, computer-aided drug discovery, crystallography, and
+//! computational neuroscience.
+//!
+//! Kiddo supports the following query types:
+//!
+//! - **Exact Nearest Neighbour**: Useful for tasks like finding the nearest airport to a given
+//!   location, or finding the nearest catalogued star to a sky position.
+//!   `tree.query(&point).nearest_one().execute()`
+//! - **k-nearest-neighbour (k-NN)** search, finding the `k` nearest items to a query point:
+//!     - ordered by distance: `tree.query(&point).nearest_n(5).execute()`.
+//!       Useful for finding the nearest weather stations or sensors to a location,
+//!       or generating candidate correspondences for point-cloud registration.
+//!     - `k` items within a max radius: `tree.query(&point).nearest_n(5).within(max_dist).execute()`.
+//!       Useful when you want the closest local neighbours inside a meaningful
+//!       cutoff, such as the nearest shops within 5 miles, or nearby atoms within
+//!       an interaction radius.
+//!     - All items within a radius: `tree.query(&point).within(max_dist).execute()`. Finds all
+//!       items within a specified radius of a query point, ordered by distance. Useful for radial
+//!       catalogue searches in astronomy, or collision and proximity queries where the full
+//!       neighbourhood is needed in sorted order.
+//!     - Unsorted, e.g. `tree.query(&point).nearest_n(5).within(max_dist).unsorted().execute()`:
+//!       This is often faster than the sorted radius-query form when result order does not
+//!       matter, such as finding all customers within 5 miles of a store, or
+//!       collecting point-cloud neighbourhoods for clustering or normal estimation.
+//! - **Approximate nearest-neighbour** (ANN) search: `tree.query(&point).nearest_one().approx().execute()`
+//!   Returns a good approximate nearest item. Generally much faster than exact nearest-neighbour
+//!   search. Useful for latency-sensitive workloads like interactive point-cloud picking, or
+//!   mapping image pixels to a palette colour during colour quantization.
+//! - **"best" `n` items**: `tree.query(&point).best_n(5, max_dist).execute()`. Finds the "best" n
+//!   items within a specified distance of a query point, for some definition of "best". For
+//!   example, "give me the 5 largest settlements within 50km of a given point, ordered by
+//!   descending population", or "the 5 brightest stars within a degree of a point on the sky,
+//!   ordered brightest first". This only makes semantic sense when your item type has meaningful
+//!   ordering; for points-only trees with `T = ()`, the query is allowed but not useful.
+//! - **[Periodic Boundary Conditions](https://en.wikipedia.org/wiki/Periodic_boundary_conditions) (PBC)**,
+//!   whereby the points in the tree are considered to represent a single subunit that repeats
+//!   across space. Useful primarily for simulations, such as within cosmology or molecular dynamics
+//!   simulations:
+//!   `tree.query(&point).periodic_boundary_condition(box_size).within(max_dist).execute()`
+//! - **Exclusive Boundary Queries**, where the query radius filter is an exclusive boundary
+//!   (< max_dist), rather than the default inclusive boundary (<= max_dist):
+//!   `tree.query(&point).within(max_dist).exclusive_boundaries().execute()`
+//!
+//! If your points are known up front and the tree will be built once and then
+//! queried, start with [`ImmutableKdTree`]. It offers the best query
+//! performance and pairs well with `rkyv` for zero-copy loading of prebuilt
+//! trees from disk; when used with memory-mapped files, loading can be
+//! effectively instant.
+//!
+//! If you need to add or remove points after construction, start with
+//! [`MutableKdTree`]. Mutable trees remain a good fit for many dynamic
+//! workloads, but they do not currently perform dynamic rebalancing, so
+//! workloads with substantial growth or heavy churn may benefit from periodic
+//! rebuilds.
+//!
+//! [`ImmutableKdTree`] and [`MutableKdTree`] are convenience aliases for
+//! [`KdTree`] with sensible defaults for these common read-heavy and mutable
+//! workloads.
+//!
+//! Kiddo is not intended as a library for high-dimensional vector search or
+//! feature matching over hundreds or thousands of dimensions, where
+//! k-d trees are usually the wrong data structure and other approaches are more
+//! appropriate. The API does not impose a hard dimensional limit, but Kiddo is
+//! primarily intended for low-dimensional workloads.
 //!
 //! ## Installation
 //!
 //! Add `kiddo` to `Cargo.toml`
 //! ```toml
 //! [dependencies]
-//! kiddo = "5.2.0"
+//! kiddo = "6.0.0-alpha.1"
 //! ```
 //!
 //! ## Usage
 //! ```rust
-//! use kiddo::KdTree;
+//! use std::num::NonZero;
+//!
+//! use kiddo::leaf_strategies::VecOfArrays;
 //! use kiddo::SquaredEuclidean;
-//! use kiddo::NearestNeighbour;
+//! use kiddo::QueryResultItem;
+//! use kiddo::{Eytzinger, ImmutableKdTree};
 //!
 //! let entries = vec![
 //!     [0f64, 0f64],
@@ -51,94 +124,150 @@
 //!     [3f64, 3f64]
 //! ];
 //!
-//! // use the kiddo::KdTree type to get up and running quickly with default settings
-//! let mut kdtree: KdTree<_, 2> = (&entries).into();
+//! let kdtree = ImmutableKdTree::new_from_slice(&entries).unwrap();
 //!
 //! // How many items are in tree?
 //! assert_eq!(kdtree.size(), 4);
 //!
 //! // find the nearest item to [0f64, 0f64].
-//! // returns a tuple of (dist, index)
-//! assert_eq!(
-//!     kdtree.nearest_one::<SquaredEuclidean>(&[0f64, 0f64]),
-//!     NearestNeighbour { distance: 0f64, item: 0 }
-//! );
+//! let nearest = kdtree
+//!     .query(&[0f64, 0f64])
+//!     .nearest_one::<SquaredEuclidean<f64>>()
+//!     .execute();
+//! assert_eq!(nearest.distance, 0f64);
+//! assert_eq!(nearest.item, 0);
 //!
 //! // find the nearest 3 items to [0f64, 0f64], and collect into a `Vec`
 //! assert_eq!(
-//!     kdtree.nearest_n::<SquaredEuclidean>(&[0f64, 0f64], 3),
-//!     vec![NearestNeighbour { distance: 0f64, item: 0 }, NearestNeighbour { distance: 2f64, item: 1 }, NearestNeighbour { distance: 8f64, item: 2 }]
+//!     kdtree
+//!         .query(&[0f64, 0f64])
+//!         .nearest_n::<SquaredEuclidean<f64>>(NonZero::new(3usize).unwrap())
+//!         .execute(),
+//!     vec![
+//!         QueryResultItem { point: (), distance: 0f64, item: 0 },
+//!         QueryResultItem { point: (), distance: 2f64, item: 1 },
+//!         QueryResultItem { point: (), distance: 8f64, item: 2 }
+//!     ]
 //! );
 //! ```
 //!
 //! See the [examples documentation](https://github.com/sdd/kiddo/tree/master/examples) for some more in-depth examples.
-//! ## Optional Features
-
-//! The Kiddo crate exposes the following features. Any labelled as **(NIGHTLY)** are not available on `stable` Rust as they require some unstable features. You'll need to build with `nightly` in order to user them.
-//! * **serde** - serialization / deserialization via [`Serde`](https://docs.rs/serde/latest/serde/)
-//! * **rkyv** - zero-copy serialization / deserialization via [`Rkyv`](https://docs.rs/rkyv/0.7.45/rkyv/index.html) version 0.7.x
-//! * **rkyv_08** - zero-copy serialization / deserialization via [`Rkyv`](https://docs.rs/rkyv/latest/rkyv/) version 0.8.x
-//! * `simd` **(NIGHTLY)** - enables some handwritten SIMD and pre-fetch intrinsics code within [`ImmutableKdTree`](`immutable::float::kdtree::ImmutableKdTree`) that may improve performance (currently only on nearest_one with `f64`)
-//! * `fixed` - enables usage of `kiddo::fixed::KdTree` for use with the `fixed` library's fixed-point number types
 //!
-//! **NOTE**: Support for rkyv 0.7 is now deprecated and will be removed in Kiddo v6.
-
-extern crate core;
+//! ## Optional Features
+//!
+//! Kiddo exposes a number of optional crate features:
+//!
+//! - `fixed` enables support for fixed-point coordinate
+//!   types from the [`fixed`](https://docs.rs/fixed/latest/fixed) crate.
+//!
+//! - `f16` enables support for half-precision floating-point coordinates via
+//!   the [`half`](https://docs.rs/half/latest/half) crate.
+//!
+//! - `serde` enables serialization and deserialization via
+//!   [`Serde`](https://docs.rs/serde/latest/serde/).
+//!
+//! - `rkyv_08` enables zero-copy serialization and deserialization via
+//!   [`rkyv`](https://docs.rs/rkyv/latest/rkyv/) 0.8.x. This is particularly
+//!   useful for prebuilt immutable trees that you want to load very quickly,
+//!   especially in conjunction with memory-mapped files.
+//!
+//! - `simd` **(NIGHTLY)** enables handwritten SIMD and prefetch intrinsics for
+//!   additional performance where available. This requires a nightly Rust
+//!   toolchain.
+//!
+//! - `huge_pages` enables Linux-specific huge-page advice helpers for owned and
+//!   archived tree storage.
+//!
+//! - `leaf_nta_prefetch` enables additional non-temporal leaf prefetch hints in
+//!   some query paths. This is an advanced tuning feature and is only useful in
+//!   specific workloads.
+//!
+//! Kiddo also contains a number of additional feature flags used for internal
+//! experimentation, benchmarking, simulation, and specialized tuning. Most
+//! users will not need them.
+//!
+//! ## MSRV
+//!
+//! Kiddo v6's current minimum supported Rust version (MSRV) is **1.89.0**
+//! (**1.85.0** for `v5.x.x`).
+//!
+//! Kiddo will aim to support at least **N-4** stable Rust releases, which is
+//! roughly six months of stable compiler history, when used with the default
+//! crate features.
+//!
+//! Kiddo will also endeavour to increase MSRV only when doing so would provide
+//! a material improvement for users, rather than simply for the sake of using
+//! a newer compiler.
+//!
+//! Optional features may require a newer toolchain than the default-feature
+//! MSRV if their dependency stack requires it. The `simd` feature is
+//! nightly-only and is outside the stable MSRV policy.
+//!
+//! **NOTE**: Support for rkyv 0.7 was removed in Kiddo v6.
 
 #[doc(hidden)]
-pub mod best_neighbour;
-#[doc(hidden)]
-pub(crate) mod common;
 #[cfg(feature = "serde")]
 #[doc(hidden)]
 mod custom_serde;
-#[cfg(feature = "fixed")]
-pub mod fixed;
-pub mod float;
-pub mod immutable;
-mod mirror_select_nth_unstable_by;
+
+pub mod kd_tree;
+pub use kd_tree::KdTree;
+
+/// Distance metrics
+pub mod dist;
+pub use crate::dist::{Chebyshev, DotProduct, Manhattan, Minkowski, SquaredEuclidean};
+
+/// Stem ordering strategies for the kd-tree
+#[path = "stem_strategy/mod.rs"]
+pub mod stem_strategies;
 #[doc(hidden)]
-pub mod nearest_neighbour;
+pub use stem_strategies as stem_strategy;
+#[doc(hidden)]
+pub use stem_strategies::DonnellyMarkerSimd;
+pub use stem_strategies::{Donnelly, DonnellyMarkerPf, Eytzinger, EytzingerPf};
+
+/// Leaf storage strategies for the kd-tree
+#[path = "leaf_strategy/mod.rs"]
+pub mod leaf_strategies;
+#[doc(hidden)]
+pub use leaf_strategies as leaf_strategy;
+pub use leaf_strategies::{FlatVec, VecOfArenas, VecOfArrays};
+
+/// Convenience type alias for recommended default params for an immutable KdTree
+pub type ImmutableKdTree<AX, const K: usize> =
+    KdTree<AX, u32, Eytzinger<K>, VecOfArenas<AX, u32, K, 32>, K, 32>;
+
+/// Convenience type alias for recommended default params for a mutable KdTree
+pub type MutableKdTree<AX, const K: usize> =
+    KdTree<AX, u32, Eytzinger<K>, VecOfArrays<AX, u32, K, 32>, K, 32>;
+
+pub mod huge_pages;
+
+/// Leaf view abstraction for accessing leaf data
+#[doc(hidden)]
+pub mod leaf_view;
+
+/// Chunked Leaf view abstraction for accessing leaf data
+pub(crate) mod leaf_view_chunked;
+
+mod mirror_select_nth_unstable_by;
+
+/// Structs that are returned as query results
+#[doc(hidden)]
+pub mod results;
+pub use results::{
+    best_query_result_item::BestQueryResultItem, query_result_item::QueryResultItem,
+};
+
+#[cfg(feature = "rkyv_08")]
+mod rkyv;
+
 #[doc(hidden)]
 #[cfg(feature = "test_utils")]
 pub mod test_utils;
+
 pub mod traits;
-
-mod iter;
-
 #[doc(hidden)]
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-pub mod within_unsorted_iter;
-
-#[doc(hidden)]
-pub mod float_leaf_slice;
-mod modified_van_emde_boas;
-mod rkyv_utils;
-
-/// A floating-point k-d tree with default parameters.
-///
-/// `A` is the floating point type (`f32` or `f64`, or `f16` in conjunction with the [`half`](https://docs.rs/half/latest/half/) crate).
-/// `K` is the number of dimensions. See [`KdTree`](`float::kdtree::KdTree`) for details of how to use.
-///
-/// To manually specify more advanced parameters, use [`KdTree`](`float::kdtree::KdTree`) directly.
-/// To store positions using integer or fixed-point types, use [`fixed::kdtree::KdTree`].
-pub type KdTree<A, const K: usize> = float::kdtree::KdTree<A, u64, K, 32, u32>;
-
-/// An immutable floating-point k-d tree with default parameters.
-///
-/// `A` is the floating point type (`f32` or `f64`, or `f16` in conjunction with the [`half`](https://docs.rs/half/latest/half/) crate).
-/// `K` is the number of dimensions. See [`ImmutableKdTree`](`immutable::float::kdtree::ImmutableKdTree`) for details of how to use.
-///
-/// To manually specify more advanced parameters, use [`ImmutableKdTree`](`immutable::float::kdtree::ImmutableKdTree`) directly.
-/// To store positions using integer or fixed-point types, use [`fixed::kdtree::KdTree`].
-pub type ImmutableKdTree<A, const K: usize> =
-    immutable::float::kdtree::ImmutableKdTree<A, u64, K, 32>;
-
-pub use best_neighbour::BestNeighbour;
-pub use float::distance::Chebyshev;
-pub use float::distance::Manhattan;
-pub use float::distance::SquaredEuclidean;
-pub use nearest_neighbour::NearestNeighbour;
-
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-pub use within_unsorted_iter::WithinUnsortedIter;
+pub use traits::{
+    Axis, ConstructibleLeafStrategy, Content, LeafStrategy, MutableLeafStrategy, StemStrategy,
+};

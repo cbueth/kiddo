@@ -2,7 +2,9 @@ name: Pre-release
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+      - v5.x.x
 
 jobs:
   pre-release:
@@ -12,6 +14,8 @@ jobs:
       id-token: write # Enable OIDC
       pull-requests: write
       contents: write
+    env:
+      RUSTFLAGS: "-C target-feature=+avx2"
     steps:
       - uses: actions/checkout@v6
         with:
@@ -43,7 +47,7 @@ jobs:
         uses: baptiste0928/cargo-install@v3
         with:
           crate: cargo-hack
-          version: "^0.5"
+          version: "^0.6"
 
       - name: Cargo check all targets and features
         run: cargo hack check --workspace --each-feature --all-targets
@@ -57,4 +61,3 @@ jobs:
           command: release-pr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

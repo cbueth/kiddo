@@ -4,24 +4,29 @@ use codspeed_criterion_compat::{
     BenchmarkGroup, BenchmarkId, Criterion, PlotConfiguration, Throughput,
 };
 use fixed::types::extra::{LeEqU16, Unsigned, U16};
-use fixed::FixedU16;
+use fixed::{FixedU16, FixedU32};
 use kiddo::batch_benches;
-use kiddo::fixed::distance::SquaredEuclidean as SquaredEuclideanFixed;
-use kiddo::fixed::kdtree::{Axis as AxisFixed, KdTree as KdTreeFixed};
-use kiddo::float::distance::SquaredEuclidean;
-use kiddo::float::kdtree::{Axis, KdTree};
+use kiddo::distance::fixed::SquaredEuclidean as SquaredEuclideanFixed;
+use kiddo::distance::float::SquaredEuclidean;
+use kiddo::{Eytzinger, KdTree, VecOfArrays};
 use kiddo::test_utils::{
     build_populated_tree_and_query_points_fixed, build_populated_tree_and_query_points_float,
     process_queries_fixed, process_queries_float,
 };
-use kiddo::traits::{Content, Index};
+use kiddo::traits::{Axis, AxisFixed, Content, Index};
 use rand::distr::StandardUniform;
 use rand_distr::Distribution;
+use std::num::NonZeroUsize;
 
 const BUCKET_SIZE: usize = 32;
 const QUERY_POINTS_PER_LOOP: usize = 100;
 
 type Fxd = U16; // FixedU16<U16>;
+type FxdR = FixedU32<U16>;
+type MutableTree<A, T, const K: usize, const B: usize> =
+    KdTree<A, T, Eytzinger<K>, VecOfArrays<A, T, K, B>, K, B>;
+type FixedTree<A, T, const K: usize, const B: usize> =
+    KdTree<FixedU16<A>, T, Eytzinger<K>, VecOfArrays<FixedU16<A>, T, K, B>, K, B>;
 
 macro_rules! bench_float_10 {
     ($group:ident, $a:ty, $t:ty, $k:tt, $idx: ty, $size:tt, $subtype: expr) => {
@@ -72,19 +77,21 @@ pub fn best_10(c: &mut Criterion) {
 
 fn perform_query_float_10<
     A: Axis,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     const B: usize,
     IDX: Index<T = IDX> + 'static,
 >(
-    kdtree: &KdTree<A, T, K, BUCKET_SIZE, IDX>,
+    kdtree: &MutableTree<A, T, K, BUCKET_SIZE>,
     point: &[A; K],
 ) where
     usize: Cast<IDX>,
     f64: Cast<A>,
 {
     kdtree
-        .best_n_within::<SquaredEuclidean>(point, 0.05f64.az::<A>(), 10)
+        .query(point)
+        .best_n_within::<SquaredEuclidean<A>>(0.05f64.az::<A>(), NonZeroUsize::new(10).unwrap())
+        .execute()
         .for_each(|res_item| {
             {
                 let _x = res_item;
@@ -95,19 +102,21 @@ fn perform_query_float_10<
 
 fn perform_query_fixed_10<
     A: Unsigned + LeEqU16,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     const B: usize,
     IDX: Index<T = IDX> + 'static,
 >(
-    kdtree: &KdTreeFixed<FixedU16<A>, T, K, BUCKET_SIZE, IDX>,
+    kdtree: &FixedTree<A, T, K, BUCKET_SIZE>,
     point: &[FixedU16<A>; K],
 ) where
     usize: Cast<IDX>,
     FixedU16<A>: AxisFixed,
 {
     kdtree
-        .best_n_within::<SquaredEuclideanFixed>(point, FixedU16::<A>::from_num(0.05f64), 10)
+        .query(point)
+        .best_n_within::<SquaredEuclideanFixed>(FxdR::from_num(0.05f64), NonZeroUsize::new(10).unwrap())
+        .execute()
         .for_each(|res_item| {
             {
                 let _x = res_item;
@@ -118,7 +127,7 @@ fn perform_query_fixed_10<
 
 fn bench_query_float_10<
     A: Axis + 'static,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     IDX: Index<T = IDX> + 'static,
 >(
@@ -151,7 +160,7 @@ fn bench_query_float_10<
 
 fn bench_query_fixed_10<
     A: Unsigned + LeEqU16,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     IDX: Index<T = IDX> + 'static,
 >(

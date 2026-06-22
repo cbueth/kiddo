@@ -4,24 +4,29 @@ use codspeed_criterion_compat::{
     BenchmarkGroup, BenchmarkId, Criterion, PlotConfiguration, Throughput,
 };
 use fixed::types::extra::{Unsigned, U16};
-use fixed::FixedU16;
+use fixed::{FixedU16, FixedU32};
 use kiddo::batch_benches;
-use kiddo::fixed::distance::SquaredEuclidean as SquaredEuclideanFixed;
-use kiddo::fixed::kdtree::{Axis as AxisFixed, KdTree as KdTreeFixed};
-use kiddo::float::distance::SquaredEuclidean;
-use kiddo::float::kdtree::{Axis, KdTree};
+use kiddo::distance::fixed::SquaredEuclidean as SquaredEuclideanFixed;
+use kiddo::distance::float::SquaredEuclidean;
+use kiddo::{Eytzinger, KdTree, VecOfArrays};
 use kiddo::test_utils::{
     build_populated_tree_and_query_points_fixed, build_populated_tree_and_query_points_float,
     process_queries_fixed, process_queries_float,
 };
-use kiddo::traits::{Content, Index};
+use kiddo::traits::{Axis, AxisFixed, Content, Index};
 use rand::distr::StandardUniform;
 use rand_distr::Distribution;
+use std::num::NonZeroUsize;
 
 const BUCKET_SIZE: usize = 32;
 const QUERY_POINTS_PER_LOOP: usize = 100;
 
 type Fxd = U16; // FixedU16<U16>;
+type FxdR = FixedU32<U16>;
+type MutableTree<A, T, const K: usize, const B: usize> =
+    KdTree<A, T, Eytzinger<K>, VecOfArrays<A, T, K, B>, K, B>;
+type FixedTree<A, T, const K: usize, const B: usize> =
+    KdTree<FixedU16<A>, T, Eytzinger<K>, VecOfArrays<FixedU16<A>, T, K, B>, K, B>;
 
 macro_rules! bench_float_10 {
     ($group:ident, $a:ty, $t:ty, $k:tt, $idx: ty, $size:tt, $subtype: expr) => {
@@ -72,18 +77,20 @@ pub fn nearest_10(c: &mut Criterion) {
 
 fn perform_query_float_10<
     A: Axis,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     const B: usize,
     IDX: Index<T = IDX> + 'static,
 >(
-    kdtree: &KdTree<A, T, K, BUCKET_SIZE, IDX>,
+    kdtree: &MutableTree<A, T, K, BUCKET_SIZE>,
     point: &[A; K],
 ) where
     usize: Cast<IDX>,
 {
     kdtree
-        .nearest_n::<SquaredEuclidean>(point, 10)
+        .query(point)
+        .nearest_n::<SquaredEuclidean<A>>(NonZeroUsize::new(10).unwrap())
+        .execute()
         .into_iter()
         .for_each(|res_item| {
             {
@@ -95,19 +102,21 @@ fn perform_query_float_10<
 
 fn perform_query_fixed_10<
     A: Unsigned,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     const B: usize,
     IDX: Index<T = IDX> + 'static,
 >(
-    kdtree: &KdTreeFixed<FixedU16<A>, T, K, BUCKET_SIZE, IDX>,
+    kdtree: &FixedTree<A, T, K, BUCKET_SIZE>,
     point: &[FixedU16<A>; K],
 ) where
     usize: Cast<IDX>,
     FixedU16<A>: AxisFixed,
 {
     kdtree
-        .nearest_n::<SquaredEuclideanFixed>(point, 10)
+        .query(point)
+        .nearest_n::<SquaredEuclideanFixed>(NonZeroUsize::new(10).unwrap())
+        .execute()
         .into_iter()
         .for_each(|res_item| {
             {
@@ -119,7 +128,7 @@ fn perform_query_fixed_10<
 
 fn bench_query_nearest_n_float_10<
     A: Axis + 'static,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     IDX: Index<T = IDX> + 'static,
 >(
@@ -151,7 +160,7 @@ fn bench_query_nearest_n_float_10<
 
 fn bench_query_nearest_n_fixed_10<
     A: Unsigned,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     IDX: Index<T = IDX> + 'static,
 >(
@@ -230,7 +239,7 @@ pub fn nearest_100(c: &mut Criterion) {
 
 fn perform_query_float_100<
     A: Axis,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     const B: usize,
     IDX: Index<T = IDX> + 'static,
@@ -253,7 +262,7 @@ fn perform_query_float_100<
 
 fn perform_query_fixed_100<
     A: Unsigned,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     const B: usize,
     IDX: Index<T = IDX> + 'static,
@@ -265,7 +274,7 @@ fn perform_query_fixed_100<
     FixedU16<A>: AxisFixed,
 {
     kdtree
-        .nearest_n::<SquaredEuclideanFixed>(point, 100)
+        .nearest_n::<SquaredEuclideanFixed, FxdR>(point, 100)
         .into_iter()
         .for_each(|res_item| {
             {
@@ -277,7 +286,7 @@ fn perform_query_fixed_100<
 
 fn bench_query_nearest_n_float_100<
     A: Axis + 'static,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     IDX: Index<T = IDX> + 'static,
 >(
@@ -309,7 +318,7 @@ fn bench_query_nearest_n_float_100<
 
 fn bench_query_nearest_n_fixed_100<
     A: Unsigned,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     IDX: Index<T = IDX> + 'static,
 >(

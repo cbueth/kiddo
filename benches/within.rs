@@ -4,17 +4,16 @@ use codspeed_criterion_compat::{
     BenchmarkId, Criterion, PlotConfiguration, Throughput,
 };
 use fixed::types::extra::{LeEqU16, Unsigned, U16};
-use fixed::FixedU16;
+use fixed::{FixedU16, FixedU32};
 use kiddo::batch_benches_parameterized;
-use kiddo::fixed::distance::SquaredEuclidean as SquaredEuclideanFixed;
-use kiddo::fixed::kdtree::{Axis as AxisFixed, KdTree as KdTreeFixed};
-use kiddo::float::distance::SquaredEuclidean;
-use kiddo::float::kdtree::{Axis, KdTree};
+use kiddo::distance::fixed::SquaredEuclidean as SquaredEuclideanFixed;
+use kiddo::distance::float::SquaredEuclidean;
+use kiddo::{Eytzinger, KdTree, VecOfArrays};
 use kiddo::test_utils::{
     build_populated_tree_and_query_points_fixed, build_populated_tree_and_query_points_float,
     process_queries_fixed_parameterized, process_queries_float_parameterized,
 };
-use kiddo::traits::{Content, Index};
+use kiddo::traits::{Axis, AxisFixed, Content, Index};
 use rand::distr::StandardUniform;
 use rand_distr::Distribution;
 
@@ -25,6 +24,11 @@ const RADIUS_MEDIUM: f64 = 0.05;
 const RADIUS_LARGE: f64 = 0.25;
 
 type Fxd = U16; // FixedU16<U16>;
+type FxdR = FixedU32<U16>;
+type MutableTree<A, T, const K: usize, const B: usize> =
+    KdTree<A, T, Eytzinger<K>, VecOfArrays<A, T, K, B>, K, B>;
+type FixedTree<A, T, const K: usize, const B: usize> =
+    KdTree<FixedU16<A>, T, Eytzinger<K>, VecOfArrays<FixedU16<A>, T, K, B>, K, B>;
 
 macro_rules! bench_float {
     ($group:ident, $a:ty, $t:ty, $k:tt, $idx: ty, $size:tt, $radius:tt,  $subtype: expr) => {
@@ -89,41 +93,47 @@ fn within(c: &mut Criterion, radius: f64, radius_name: &str) {
 
 fn perform_query_float<
     A: Axis,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     const B: usize,
     IDX: Index<T = IDX> + 'static,
 >(
-    kdtree: &KdTree<A, T, K, BUCKET_SIZE, IDX>,
+    kdtree: &MutableTree<A, T, K, BUCKET_SIZE>,
     point: &[A; K],
     radius: f64,
 ) where
     usize: Cast<IDX>,
     f64: Cast<A>,
 {
-    let _res = kdtree.within::<SquaredEuclidean>(point, radius.az::<A>());
+    let _res = kdtree
+        .query(point)
+        .within::<SquaredEuclidean<A>>(radius.az::<A>())
+        .execute();
 }
 
 fn perform_query_fixed<
     A: Unsigned + LeEqU16,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     const B: usize,
     IDX: Index<T = IDX> + 'static,
 >(
-    kdtree: &KdTreeFixed<FixedU16<A>, T, K, BUCKET_SIZE, IDX>,
+    kdtree: &FixedTree<A, T, K, BUCKET_SIZE>,
     point: &[FixedU16<A>; K],
     radius: f64,
 ) where
     usize: Cast<IDX>,
     FixedU16<A>: AxisFixed,
 {
-    let _res = kdtree.within::<SquaredEuclideanFixed>(point, FixedU16::<A>::from_num(radius));
+    let _res = kdtree
+        .query(point)
+        .within::<SquaredEuclideanFixed>(FxdR::from_num(radius))
+        .execute();
 }
 
 fn bench_query_float<
     A: Axis + 'static,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     IDX: Index<T = IDX> + 'static,
 >(
@@ -160,7 +170,7 @@ fn bench_query_float<
 
 fn bench_query_fixed<
     A: Unsigned + LeEqU16,
-    T: Content + 'static,
+    T: Content,
     const K: usize,
     IDX: Index<T = IDX> + 'static,
 >(
