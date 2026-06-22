@@ -1,5 +1,519 @@
 # Kiddo Changelog
 
+## [6.0.0-alpha.1] - 2026-06-22
+
+### Ci
+
+- Add build workflow
+- Add CI for format/clippy/test/coverage/release/publish
+- Fix git-cliff.toml changelog config
+- Update pre-release.yml to use a single job
+- Update pre-release.yml to remove Clippy check
+- Update release.yml to only release on merged PRs labelled `release`
+- Add job to update version strings in docs on pre-release PR branch
+- Temp disable testing of SIMD code path
+- Ensure doctests get ran in CI
+- Add codspeed
+- Ensure codspeed runs on master rather than main. Don't show progress on CI checkout
+- Fix issue with CI lint steps
+- Restore accidentally removed step from pre release string udpater job
+- Fix pre-release string updater regex
+- Trigger pre-release-string-updater on pr open or repoen of release-plz branches
+- Update github actions to use rkyv_08 feature instead of rkyv
+- Update github actions to use rkyv_08 feature instead of rkyv
+- Update renovate bot config so that it ignores deps that are pined to old versions for legacy feature compatibility
+- Update CI workflow triggers to include PR and workflow_dispatch
+- Permit coverage to run for PRs as well
+- Fix release-plz and add commitlint
+- Add codeql and dep review steps. fix codspeed. Pin some floating actions
+- Ensure dependabot PR CI runs don't write checks
+- Don't run comitlint for dependabot PRs
+- Run machete, update hooks, coverage skip at step level
+
+### Deps
+
+- Relax strictness of some deps to reduce renovate noise
+- Update generator dependency to 0.8.4, Fixes:https://github.com/sdd/kiddo/issues/182
+- Remove doc-comment dependency and use doc attribute that was added in Rust 1.54 instead
+- Bump cmov to 0.4 as all other versions were yanked
+
+### Revert
+
+- Changes since 'next' branch diverged
+- Re-apply changes reverted in 42f9455
+
+### ♻️ Refactor
+
+- Move Content and Index to src/types.rs and use for both float and fixed. Refactor some repeated test code into test_utils
+- Reduce boilerplate in nearest_one and nearest_n benches
+- Tighten unsafe boundaries. Rename best_n_within_into_iter to best_n_within
+- Dont store bounds on nodes
+- Remove unstable features to allow use on stable rust
+- Update `Axis` trait to include some methods so that the
+- Float and fixed both use a common macro for nearest_n
+- Float and fixed both use a common macro for within
+- Float and fixed both use a common macro for within_unsorted
+- Float and fixed both use a common macro for best_n_within
+- Use idx 1 as root. return usize from size()
+- Use usize where poss to index stem nodes in add and split
+- Rewrite add and split to improve performance
+- Pass leaf node count to stem optimizer
+- Extract extend_shifts function
+- Clippy lint fixes
+- Remove unused code from simd leaf node
+- Slight tweak to SortedVec NearestNeighbour max_dist
+- Remove need for gated import
+- Remove unstable features
+- Switch from having an eytzinger feature to a modified_van_emde_boas feature and default to Eytzinger. Update readme and changelog
+- Split LeafSliceFloatChunk out of LeafSliceFloat to fix unspecifiable parameter issue. Fix some lint issues and tests, and update docs
+- Unify types and distance_metric modules into a single unified traits modules to make things a bit neater, especially in the docs
+- Modified_van_emde_boas feature gating rewritten. Separate tests for branchless and non-branchless mveb. Fix some new lints
+- Remove rkyv_08 specific variants of Axis / Content / Index traits
+- Rename rkyv 08 Archived types to avoid clash with rkyv 07 ones
+- Remove within_unsorted_iter_owned in favour of modifying within_unsorted_iter
+- Update all immutable query methods to use generic stem strategy
+- Better file structure for SIMD code. some lint / formatting fixes
+- Switch from size_of dispatch in QO pruning to `SimdPrune` trait
+- Rename Basics trait to Content
+- Move PBC code into own file
+- Query builder now a single generic struct
+- Query builder uses traits to avoid dupes in docs
+- Yet another builder refactor - use macros for less repetition
+- Move some traits around and rename some traits, improve docs
+- Distance trait reorg
+
+### ⚡️ Performance
+
+- Refactor `within` to simply sort the result of `within_unsorted`
+- Quit as early as possible if chink fits in bucket
+- Revert perf regression on immutable tree. Update docs
+- Refactor donnelly block simd code
+- Improve PBC performance
+- Nearest_n / within queries are now single-pass
+
+### ✨ Features
+
+- Initial commit
+- Add rkyv zero-copy deserialization
+- Added SIMD f32 4D specific tree. Lots of perf improvements
+- Refactor simd to tuned. add benches for tuned f32d4 and u16d4. refactor leafnodeentry into separate content points and items for better autovectorization
+- Add generic fixed point tree
+- Remove saturating mul / add from fxp squared_euclidean to try to make it vectorizible. split leaf processing in best_n_into_iter into separate funcs to track runtime of each part better
+- Refactor into float and fixed. Fixed mirror_select_nth_unstable_by bug. Add nearest_n
+- Add remove() method
+- Add Sync bound to Axis, Content and Index to allow use with Rayon
+- Bump version to 2.0.0-beta.2
+- Update deps, add serde and rkyv examples, clean up custom serde, remove main
+- Add changelog and example links to readme. Update version strings
+- Add default tree export
+- Return Neighbour<> instead of a tuple in queries., BREAKING:nearest_n now returns a Vec<Neighbour<_, _>> instead of an iterator.
+  The MinMaxHeap was removed in favour of a BinaryHeap, which pretty much doubled
+  query performance on nearest_n but it means that returning a Vec<> here instead
+  of an Iterator makes more sense as we need to call to_sorted_vec() on the
+  BinaryHeap anyway, so we may as well just return the resulting Vec rather than
+  converting that to an Iterator since the most common use case would be to then
+  collect that Iterator into a Vec anyway
+- Rename `radius` param to `dist` and update documentation
+- V2.0.0 release
+- Implement all queries on float::ArchivedKdTree. Update rkyv example.
+- Queries return structs instead of tuples
+- Use a trait instead of a function pointer for distance metrics
+- Add within_unsorted_into_iter query
+- Semi-static-stem
+- Add nearest_one implementation
+- Balanced construction
+- Balanced construction part 2
+- Balanced construction pt 3
+- Add immutable kdtree
+- Use shifts array during construction, and other fixes and optimizations
+- It's finally working! Tested on 1m random trees of each size from 16 to 100, no errors. Tests include an 8m item tree
+- Immutable WIP
+- Immutable WIP 2 (all queries done)
+- Gate unstable rust features behind a crate feature
+- Rename ImmutableTree::optimize_from to new_from_slice. Update docs and version to 3.0.0-beta.2
+- ImmutableTree uses Best/NearestNeighbour for query results, and uses DistanceMetric
+- Refactor immutable to macros to allow DRY query method generation for ArchivedImmutableKdTree
+- Implement query methods on ArchivedImmutableKdTree using macros
+- Simd leaf
+- SIMD leaf nearest one
+- SIMD leaves, AVX2 f64
+- SIMD leaf nearest one: f32 and avx2
+- SIMD leaf nearest n within
+- Export float ImmutableKdTree and Manhattan from root. Clean up examples.
+- Add immutable best_n_within
+- `ImmutableKdTree` now works on stable, BREAKING CHANGE:the `immutable` crate feature now no longer exists.
+- Make tracing an optional dependency gated by tracing feature flag, implements #118
+- Iterate over trees
+- Make rand and rayon optional
+- Add f16 support, example and docs to show usage with half crate
+- Make nearest_n_within max_qty param a NonZero
+- Rename some features to be more conventional and fix the way they work
+- Experimental ImmutableTree variant with dynamic split dimension
+- Pointcloud test examples
+- Modified van Emde Boas layout
+- Flesh out immutable dynamic variant
+- More immutable dynamic enhancements
+- Implement remaining immutable_dynamic query methds
+- Replace immutable with immutable dynamic
+- Ensure immutable works when empty or single bucket. Fix broken tests
+- Use avec to force alignment for up to 40% query perf improvement
+- Add eytzinger feature to test perf vs mod. van emde boas
+- Preallocate binary heap capacity
+- Rkyv v0.8
+- More progress towards rkyv 0.8
+- Implemented remaining query methods for rkyv_08
+- Gate fixed behind a compilation feature to reduce compile times
+- Implement rkyv_08 for standard float KdTree
+- Improve the flexibility of T type, KdTree.size. Add generate nearest_one_point
+- Restructure project layout to rationalize things a bit more
+- Fixed tree can now return results in a wider type than the stored points, Fixes:#32
+- Remove rkyv 0.7 support
+- Make stem ordering scheme generic
+- Add benches for donnelly strategy
+- Updated donnelly strategies. approx nearest one bench comparing with eytzinger
+- Added benches and tests
+- Add examples and benches
+- Add get_leaf_node to immutable for testing, plus benches
+- Add cache simulator
+- Extend simulator to include basic timing simulation
+- Extend simulator. add testing for unroll
+- Add donnelly_unrolled experiment
+- Beat eytzinger on unrolled donnelly 4 on zen3
+- Part-way through development of basic structure of new traits for new tree
+- New structure updated axis trait. metrics added for L2 and DP, with widening variants
+- Widen float->float and fixed->float. Rough impls for more queries
+- V6 construction
+- Construction and tests for both initial leaf strategies working
+- V6 querying
+- V6 querying working for ann/n1. bug fixing for nearest-n / best-n
+- V6 bug fix for enarest/best n in progress, minor cleanup of lints
+- V6 fix orchestrator logic bug
+- V6 flat vec queries working
+- V6 vec of arrays tests in place for unmutated construct from slice
+- Support arithmetic or mapped stem-to-leaf-idx mapping
+- Leaf splitting partially implemented
+- Continuing to iterate on leaf splitting
+- Refactor Mutability trait (unify query and trav methods)
+- Improved splitting
+- Continuing to iterate on leaf splitting
+- Leaf split and query working for mut / immut, donnelly / eytz, flat_vec / vec_of_arrays
+- Stem levels can be padded to a full block. Construction now calcs exact stem count
+- Add DonnellyMarker stem strat. Uses marker type for block height
+- Simd block-at-once comparison. move core Donnelly traversal logic to DonnellyCore
+- Simd backtracking qyery
+- Split fix
+- Some more trace logging
+- Debug logging / tests / minor cleanup
+- Neon and fallback impls for simd block. simd refactor. fix build and lints
+- Refactor SIMD compare to traits to avoid size_of based dispatch
+- Block4 proper interval calculation and distance handling
+- Generalize interval calculation to support metric-agnostic approach
+- Implementations for blockmarker SIMD
+- Construction and query issues fixed, all tests inc fuzz pass for v6
+- Simd backtrack AVX512 initial implementation
+- Include some workarounds for now that address simd block-at-once fails
+- Simd kernel naming changes and improvements
+- Thread-local query stack, nearest-one improvements, return to chunked leaf slice
+- New simd dist traits and improved simd leaf processing
+- Avx512 tidyup
+- Add VecOfArenas leaf strategy. Get all the AVX512 code working for approx_n1 and n1
+- Refactor to avoid ugly typeId routing in nearest_one
+- Donnelly block simd refactor to improve performance on prune
+- Remove v5 trees
+- V6 multi0-result queries implemented, plus cleanup
+- V6 examples and benches cleanup, fixes from fuzzing
+- Thp and improved result collections experiment
+- Rkyv and iterators
+- Introduce within_unsorted_visit, improve within_unsorted_iter
+- Add huge pages suppt
+- Large-scale restructure to move modules around
+- Large-scale restructure to move modules around pt 2
+- Large scale restructure part 3
+- Relabel from RC to alpha
+- Remove legacy traits and re-organize things even more
+- Add scalar split stack (off / far) and result collection stats. Add some asm hooks
+- Add scalar split stack (off / far) and result collection stats
+- Add tests for DonnellySimdDescent and comment out unused function
+- Update construction and mutation API surface to return `Result`
+- Protect against bucket size of 1 with VecOfArrays at compile time
+- Re-add Chebyshev and Minkowski distance metrics
+- Refactor query API to fluent builder style
+- Port over boundary inclusivity
+- Flexible results projection via builder
+- Implement TryFrom convertion from one KdTree type to another
+- Add new_from_source constructor
+- Initial periodic boundary conditions support for v6
+- Add replace_item method
+- Restore serde support
+
+### 🐛 Bug Fixes
+
+- Allow creation with capacity zero, Issue:https://github.com/sdd/kiddo/issues/11
+- Bug in remove when query point value has same value as a split plane, Issue:https://github.com/sdd/kiddo/issues/12
+- Update rust crate fixed to 1.23
+- Update rust crate rayon to 1.7
+- Properly split buckets, Fixes:https://github.com/sdd/kiddo/issues/28
+- Update rust crate serde_with to v3
+- Incompatibility with fixed crate num-traits feature
+- Update rust crate rayon to 1.8
+- Prevent occasional overflow in `Fixed` tree queries by using a saturating_add
+- Only return from root of stem optimizer if there is no room in existing leaves
+- Only terminate stem optimizer early if the upper child fits in one bucket as well as the lower
+- Stem optimizer passes capacity of subtree rather than leaf node count. Fails on 1 tree in 16m for sizes 16-32
+- Optimize_Stems handles right subtree shift requests properly
+- Tracking down last immutable bugs
+- Immutable pivot calc improved. Tracing. bupe checking test
+- One more immutable bug
+- Update conditional compilation directives and gate unstable lang features
+- Disable AVX512 until I can test it on a machine with actual AVX512
+- Don't use AVX512 intrinsic in AVX2 code path
+- Update rust crate serde_with to 3.4
+- Simd in immutable::nearest_one
+- AVX512 missing param
+- Update rust crate itertools to 0.12
+- Re-enable support for wasm targets
+- Stdsimd removed from unstable, fix:fixup simd removal
+- Add missing global_allocate feature definition and sort feature defs alphabetically
+- Update benches to require test_utils feature. update clippy and test steps to include new test_utils feature
+- Claytonwramsey bug, Fixes:#138
+- Prevent overflow in capacity_with_bucket_size on non-64 bit architectures
+- Prevent assertion failure when stem optimisation needs a large shift
+- Nearest_n_within does not limit num of items when not sorted, Issue:https://github.com/sdd/kiddo/issues/168
+- Update rust crate itertools to 0.13
+- Avx2-check example fails on rust 1.81
+- Get rkyv ser/de working for ImmutableKdTree. Update examples and docs
+- Consistently use CACHELINE_ALIGN
+- Only export WithinUnsortedIter on archs where the within_unsorted_iter mod is configured
+- Broken release action yaml
+- Repro test failure from pre-release job in build job
+- Disable broken get_best_from_dists_f64_avx2 until fixed
+- Pre-release string updater job branch matcher
+- Syntax error from pre-release string updater github action bug
+- Update rust crate itertools to 0.14
+- Address issue applying feature
+- Update firmatting to match latest lint rules. Allow unused import for problematic approx nearest one import
+- Remove unneeded unstable feature
+- Ensure that f16 works with rkyv_08 by adding the f16_rkyv_08 feature
+- Update rust crate ordered-float to v5
+- Remove needless SubAssign trait bound from Content trait
+- Broken during rebase of earlier trait change commit
+- Update to use transform function
+- Correct slice access in remainder processing and remove unsafe, Signed-off-by:Markus Zoppelt <markus.zoppelt@helsing.ai>
+- Use try_from() with error for leaf_items.len()
+- Larger stem buffer to avoid overflow. add examples for ann for cachegrind
+- Gate arm stuff behind cfg
+- Leaf extent calc during construction
+- Simd block3 avx2 bugs fixed. v6_query_nearest_one_donnelly_marker_simd_f64 partial fix
+- Construct stems with len multiple of 8. Display trait for KdTree shows stems in 8 columns
+- Tracked down simd backtrack bug. This was a MASSIVE PITA to find
+- Rd calc issue in new tree
+- Rd calc issue in old trees
+- Ensure within tests use <= rather than <. Add fuzz test repro bin
+- Nearest_one pruning uses gte rather than gt
+- Correct handling of non-u64 sentinel values
+- Fix up breakage from rebase on to master
+- Gate prefetch behind nightly detection to avoid breakage on stable builds
+- Use INF / NEG_INF instead of MIN / MAX for float sentinels
+- Manually inline some SIMD fns
+- Constrution bug could break invariants assumeed by arithmetic mapping
+- Don't use deprecated max_value form
+- Keep fixed dep below 1.31.0 to preseve MSRV
+
+### 💄 Styling
+
+- Fmt
+- Fmt
+- Spelling fix and comment removal
+- Fmt
+- Remove unnecessary parentheses
+- Fix formatting
+- Formatting
+- Formatting, codspeed run on feature branches
+
+### 📝 Documentation
+
+- Use only 5 keywords in Cargo.toml
+- Cargo.toml keywords can't contain spaces
+- Remove reference to kiddo being based on kdtree now that this is a rewrite
+- Add documentation and doc examples
+- Add documentation for add/remove methods
+- Add cities example
+- Fix some broken links and add missing docs for last generic param in cities example
+- Update changelog and docs for release 2.1.0
+- Fix serde example
+- Minor documentation enhancements
+- Update rkyv-large example
+- Update version in README.md
+- Add workings for right subchild example
+- Fix bad links
+- Minor documentation tweaks
+- Clean up some examples
+- Rewrite doctests to use convenient top-level exports. Ensure doctest .rkyv artifact is reproducible
+- Fix ImmutableKdTree links in the top level documentation
+- Update example for ImmutableKdTree::size
+- Update feature docs in lib.rs
+- Update changelog
+- Update references of kd-tree to k-d tree. Minor rewrite of other parts
+- More documentation improvements
+- Update changelog
+- Fix extra spacing causing clippy lint failure
+- Update changelog
+- Update some stale documentation. Remove the global_allocate feature which is no longer used for anything
+- Update changelog
+- Update documentation for v6
+- Update README
+- Update README
+- Improve huge pages documentation
+- Improve leaf strategy docs
+
+### 🧪 Testing
+
+- Add float construction many items unit test
+- Update benches
+- Refactor add and nearest_one benchmarks to be more DRY
+- Refactor all benches to be more DRY. Format and fix some clippy lints
+- Fix nearest_n bench code
+- Re-enable serde test
+- Add tests to cover all split conditions
+- Add bench for nearest_one
+- Optimize stems stress test only goes to size 32 but seed 1m
+- Fix doctests
+- Sort result of within() call in tests to prevent spurious test failures
+- Fix iter doctests and remove unused var
+- Add hacky workaround to enable tests to run without having to specify --features=test_utils
+- Remove unneeded large test and ignored tests
+- Add tests for float slice fallback
+- Ignore alignment test that always fails
+- Fix rkyv_08 doctests
+- Fixup rkyv doctests
+- Fix broken test of custom struct as T. Add test for () as T
+- Add regression test for remainder slice access bug, Signed-off-by:Markus Zoppelt <markus.zoppelt@helsing.ai>
+- Add test for get_both_child_idx to donnelly2
+- Restore state of some tests. Clean up some lints
+- Add more tests of donnelly block simd prior to refactor
+- Add tests for SIMD interval code. reformat
+- Improve coverage, mostly dist metric traits
+- Increase coverage on THP, traits and leaf_view
+- Improve coverage for simd stem strat
+- Improve coverage further for simd stem strat
+- Inc test coverage for orchestrator
+- Add coverage for LeafView
+- Coverage for eytzinger_pf_far and query_stack_simd
+- Coverage for vec_of_arrays
+- Coverage for d3 and backtrack traits
+- General coverage improvements
+- Confirm issue #258 is resolved in v6
+
+### 🧹 Chore
+
+- Rename from sok (son of kiddo) to kiddo, with the aim of this being kiddo v2. Add some docs
+- Update some docs and add beta suffix to version
+- Bump version to 2.0.0-beta.5
+- Update .gitignore
+- Bump version to 2.0.0-beta.8
+- Bump version to 2.0.0-beta.9
+- Update actions/checkout action to v3
+- Bump version to 2.0.2
+- Add .DS_Store to .gitignore
+- Add some missing docs and hide some private internals
+- Update rust crate criterion to 0.5
+- Fix clippy lints
+- Update versions in lib.rs
+- Release
+- Fix clippy lints
+- Add .codecov.yml
+- Bump version to 2.1.2
+- Update actions/checkout action to v4
+- Update ad-m/github-push-action action to v0.8.0
+- Remove commented-out code in float's within_into_iter
+- Enable some optimizations on the bench profile
+- Release 3.0.0-beta.1
+- Add DS_Store and vscode to .gitignore
+- Update trace calls
+- Minor immutable tweaks
+- Minor example and docs update for immutable
+- Merged in changes from 3.0 branch
+- Release 3.0.0-beta.3
+- Remove commented code and test comments
+- Version 3.0.0-beta.4
+- Reorg simd conditional compilation annotations
+- Fix clippy lints
+- Remove unused deps
+- Update ordered-float dep from 3.7 -> 4
+- Version 3.0.0-rc.1
+- Update actions/checkout action to v4
+- Downgrade serde_with to fix failing dependency resolution
+- Clean up some clippy lints from tests
+- V3.0.0 :tada:
+- Consistency
+- Update rust crate proc-macro2 to 1.0.70
+- Remove an example file as it is causing problems with release-plz 🙄
+- Release, Signed-off-by:Scott Donnelly <scott@donnel.ly>
+- Remove unused import
+- Update actions/cache action to v4
+- Update codecov/codecov-action action to v4
+- Update baptiste0928/cargo-install action to v3
+- Release
+- Release
+- Release, Signed-off-by:Scott Donnelly <scott@donnel.ly>
+- Refactor trait bounds to silence new clippy lints
+- Silence new lint error
+- Silence error regarding doc_cfg no longer working
+- Update codspeedhq/action action to v3
+- Release
+- Fix some lint issues
+- Remove unused code
+- Update codecov/codecov-action action to v5
+- Update colathro/crate-version action to v2
+- Release
+- Release v5.0.2
+- Update version references
+- Update version references
+- Release v5.0.3
+- Update version references
+- Update rust crate rstest to 0.24
+- Update rust crate rstest to 0.25
+- Temp disable half/f16 example until f16 working with rkyv_08
+- Try to get half example working again
+- Convert doctest file load unwraps to expects to help track down which files are missing. Fix broken CI tests by ensuring missing test files are created before running the test
+- Clean up unused deps and move some deps to dev-deps
+- Update to latest versions of rand crates
+- Update to latest version of criterion
+- Update serde example to bincode v2
+- Release v5.1.0
+- Update version references
+- Bump version to 5.2.0
+- Release v5.2.1
+- Fix some lint issues
+- Use `doc` attribute instead of `doc_comment!`
+- Update actions/checkout action to v6
+- Update codspeedhq/action action to v4
+- Update ad-m/github-push-action action to v1
+- Update rust crate rstest to 0.26
+- Update rust crate codspeed-criterion-compat to v4
+- Update actions/cache action to v5
+- Clean up broken benches and examples
+- Change imports (clippy). Reduce size of test tree & test_log. add non-simd tree
+- Switch from monk to prek
+- Update cmov dep, fix some simd cond cfg that was arm only, fix some missing imports
+- Fix kiddo-v5 dep in Cargo.toml
+- Fix clippy lints
+- Fix GH CI building binary with invalid instructions
+- Update prek cfg, format and lint taml/toml/md files
+- Bump moonrepo/setup-rust from 0 to 1, Signed-off-by:dependabot[bot] <support@github.com>
+- Update dependency node to v24
+- Bump ad-m/github-push-action from 1.0.0 to 1.3.0, Signed-off-by:dependabot[bot] <support@github.com>
+- Bump actions/setup-node from 5 to 6, Signed-off-by:dependabot[bot] <support@github.com>
+- Bump codecov/codecov-action from 5 to 6, Signed-off-by:dependabot[bot] <support@github.com>
+- Update actions/dependency-review-action action to v5
+- Specify v6 msrv and policy and include an msrv CI build
+- Bump LoliGothick/clippy-check, Signed-off-by:dependabot[bot] <support@github.com>
+- Update codecov/codecov-action action to v7
+- Update dorny/paths-filter action to v4
+- Bump rand deps
+- Bump criterion dep
+- Update rust crate itertools to 0.15
+
 ## Unreleased
 
 I've kept back these changes for now as, whilst extremely welcome, the change to the return type of `size()` would be breaking.
