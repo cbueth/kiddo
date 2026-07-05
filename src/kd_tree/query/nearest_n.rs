@@ -3,6 +3,7 @@ use std::num::NonZero;
 use crate::dist::DistanceMetric;
 use crate::kd_tree::query_stack::StackTrait;
 use crate::leaf_view::TlsLeafScratch;
+use crate::results::result_collection::BinaryHeapResultCollection;
 use crate::stem_strategy::donnelly::simd_full::{
     BacktrackBlock3, BacktrackBlock4, SimdSelectBestChildBlock3,
 };
@@ -35,6 +36,93 @@ where
         SS::Stack<D::Output>: StackTrait<D::Output, SS> + 'static,
     {
         self.nearest_n_within::<D>(query, D::Output::max_value(), max_qty, sorted)
+    }
+
+    /// Finds the N nearest points using a caller-provided traversal stack,
+    /// bypassing the per-query TLS lookup overhead.
+    ///
+    /// Reuse the same `stack` across multiple queries to avoid any allocation
+    /// or TLS access after the first call.
+    ///
+    /// Results are sorted by increasing distance.
+    ///
+    /// # Type Parameters
+    /// * `D` — distance metric (e.g. [`SquaredEuclidean`](crate::SquaredEuclidean))
+    ///
+    /// # Arguments
+    /// * `query` — the query point
+    /// * `max_qty` — number of nearest neighbors to return
+    /// * `stack` — a locally-owned traversal stack, created via `Default::default()`
+    ///
+    /// # Example
+    /// ```ignore
+    /// let mut stack = Default::default();
+    /// for q in &query_points {
+    ///     let results = tree.nearest_n_with_stack::<SquaredEuclidean<f32>>(
+    ///         q, NonZero::new(5).unwrap(), &mut stack,
+    ///     );
+    /// }
+    /// ```
+    #[inline]
+    pub fn nearest_n_with_stack<D>(
+        &self,
+        query: &[A; K],
+        max_qty: NonZero<usize>,
+        stack: &mut SS::Stack<D::Output>,
+    ) -> Vec<QueryResultItem<(), T, D::Output>>
+    where
+        D: DistanceMetric<A>,
+        D::Output: crate::stem_strategy::SimdPrune
+            + SimdSelectBestChildBlock3
+            + BacktrackBlock3
+            + BacktrackBlock4
+            + TlsLeafScratch
+            + 'static,
+        SS::Stack<D::Output>: StackTrait<D::Output, SS>,
+    {
+        let max_qty_usize = max_qty.get();
+        let max_dist = D::Output::max_value();
+
+        self.nearest_n_within_inner_with_stack::<
+            D,
+            BinaryHeapResultCollection<QueryResultItem<(), T, D::Output>>,
+            false,
+        >(query, max_dist, max_qty_usize, true, stack)
+    }
+
+    /// Finds the N nearest points using a locally-allocated traversal stack,
+    /// bypassing the per-query TLS lookup overhead.
+    ///
+    /// This is a convenience wrapper around [`nearest_n_with_stack`](KdTree::nearest_n_with_stack)
+    /// that allocates a new traversal stack on each call. For bulk queries
+    /// against the same tree, prefer `nearest_n_with_stack` with a reused stack.
+    ///
+    /// Results are sorted by increasing distance.
+    ///
+    /// # Type Parameters
+    /// * `D` — distance metric (e.g. [`SquaredEuclidean`](crate::SquaredEuclidean))
+    ///
+    /// # Arguments
+    /// * `query` — the query point
+    /// * `max_qty` — number of nearest neighbors to return
+    #[inline]
+    pub fn nearest_n_direct<D>(
+        &self,
+        query: &[A; K],
+        max_qty: NonZero<usize>,
+    ) -> Vec<QueryResultItem<(), T, D::Output>>
+    where
+        D: DistanceMetric<A>,
+        D::Output: crate::stem_strategy::SimdPrune
+            + SimdSelectBestChildBlock3
+            + BacktrackBlock3
+            + BacktrackBlock4
+            + TlsLeafScratch
+            + 'static,
+        SS::Stack<D::Output>: StackTrait<D::Output, SS> + Default + 'static,
+    {
+        let mut stack = SS::Stack::<D::Output>::default();
+        self.nearest_n_with_stack::<D>(query, max_qty, &mut stack)
     }
 }
 

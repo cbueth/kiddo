@@ -184,6 +184,54 @@ where
             req_ctx.results.into_vec()
         }
     }
+
+    #[inline(always)]
+    pub(crate) fn nearest_n_within_inner_with_stack<D, R, const EXCLUSIVE: bool>(
+        &self,
+        query: &[A; K],
+        max_dist: D::Output,
+        max_qty: usize,
+        sorted: bool,
+        stack: &mut SS::Stack<D::Output>,
+    ) -> Vec<QueryResultItem<(), T, D::Output>>
+    where
+        D: DistanceMetric<A>,
+        D::Output: crate::stem_strategy::SimdPrune
+            + SimdSelectBestChildBlock3
+            + BacktrackBlock3
+            + BacktrackBlock4
+            + TlsLeafScratch
+            + 'static,
+        R: ResultCollection<D::Output, QueryResultItem<(), T, D::Output>>,
+        SS::Stack<D::Output>: StackTrait<D::Output, SS>,
+    {
+        let mut req_ctx = NearestNWithinReqCtx::<A, T, D::Output, R, EXCLUSIVE, K> {
+            query,
+            max_dist,
+            results: R::with_max_qty(max_qty),
+            _phantom: std::marker::PhantomData,
+        };
+
+        self.backtracking_query_with_stack::<_, _, D>(
+            &mut req_ctx,
+            stack,
+            |leaf_idx, query_wide, req_ctx| {
+                let leaf_max_dist = req_ctx.max_dist();
+                self.process_leaf_nearest_n_within::<D, R, EXCLUSIVE>(
+                    leaf_idx,
+                    query_wide,
+                    leaf_max_dist,
+                    &mut req_ctx.results,
+                );
+            },
+        );
+
+        if sorted {
+            req_ctx.results.into_sorted_vec()
+        } else {
+            req_ctx.results.into_vec()
+        }
+    }
 }
 
 #[allow(missing_docs)]
