@@ -8,8 +8,6 @@ use crate::leaf_view::TlsLeafScratch;
 use crate::leaf_view_chunked::nearest_n_within::{
     nearest_n_within_with_query_wide, nearest_n_within_with_query_wide_arena,
 };
-#[cfg(not(feature = "small_n_result_collectors"))]
-use crate::results::result_collection::SortedVecResultCollection;
 use crate::results::result_collection::{BinaryHeapResultCollection, ResultCollection};
 #[cfg(feature = "small_n_result_collectors")]
 use crate::results::result_collection::{
@@ -20,9 +18,6 @@ use crate::stem_strategy::donnelly::simd_full::{
 };
 use crate::traits::leaf_strategy::LeafProjection;
 use crate::{Axis, Content, KdTree, LeafStrategy, QueryResultItem, StemStrategy};
-
-#[cfg(not(feature = "small_n_result_collectors"))]
-const MAX_VEC_RESULT_SIZE: usize = 20;
 
 impl<A, T, SS, LS, const K: usize, const B: usize> KdTree<A, T, SS, LS, K, B>
 where
@@ -130,15 +125,6 @@ where
                 return self.nearest_n_within_inner::<
                     D,
                     SmallSortedVecResultCollection<QueryResultItem<(), T, D::Output>>,
-                    EXCLUSIVE,
-                >(query, max_dist, max_qty, sorted);
-            }
-
-            #[cfg(not(feature = "small_n_result_collectors"))]
-            if max_qty <= MAX_VEC_RESULT_SIZE {
-                return self.nearest_n_within_inner::<
-                    D,
-                    SortedVecResultCollection<QueryResultItem<(), T, D::Output>>,
                     EXCLUSIVE,
                 >(query, max_dist, max_qty, sorted);
             }
