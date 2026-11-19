@@ -21,8 +21,8 @@ bibliography: paper.bib
 
 Kiddo is an open-source Rust library for fast, flexible nearest-neighbour search
 in low-dimensional data. Its modular architecture facilitates configurability for
-optimizing performance or memory usage for a given use case, or experimenting
-with new algorithms and layouts. Performance and ergonomics are guiding principles
+optimising performance or memory usage for a given use case, or evaluating new
+algorithms and layouts. Performance and ergonomics are guiding principles
 of the design.
 
 Like other k-d trees, it partitions space to avoid examining distant points
@@ -55,10 +55,14 @@ that accepts insertions and removals. Coordinate precision, memory consumption,
 query throughput, and startup costs also matter when an index is reused across
 analysis runs.
 
-Kiddo addresses these needs through a common tree and query interface with
-configurable storage and traversal strategies. Researchers can select a suitable
-representation without implementing their own spatial index. Its scope is
-point-based search in low-dimensional coordinate spaces; suitability and
+Existing Rust crates and compiled C, C++, and Fortran libraries cover parts of
+this space. Kiddo targets the gap with configurable storage and traversal behind
+one query interface, so users can choose the trade-off that fits their data.
+
+Kiddo addresses these needs through a common tree and query interface.
+Users can select a suitable representation without implementing their own spatial
+index. Its scope is
+point-based search in low-dimensional coordinate spaces. Suitability and
 performance still depend on the data distribution, metric, and workload.
 Its intended audience also includes researchers developing spatial data
 structures, who need to vary algorithms and memory layouts independently while
@@ -66,48 +70,72 @@ retaining a common application interface and evaluation framework.
 
 # State of the field
 
-K-d trees are an established technique [@bentley1975], with mature
-implementations in several scientific software ecosystems. SciPy offers
-nearest-neighbour searching within its Python scientific-computing environment
-[@scipy2020; @scipy_kdtree]. The C++ library `nanoflann` provides a header-only
-implementation for nearest-neighbour search [@nanoflann2014]. Within Rust,
-`kd-tree` provides nearest-neighbour and radius searches over user-defined point
-types [@terada_kdtree]. These packages are relevant alternatives when choosing
-an index for a particular application.
+K-d trees are an established technique for associative search [@bentley1975],
+and Friedman et al. established their use for nearest-neighbour search
+[@friedman1977]. Broader treatments of multidimensional data structures provide
+additional context [@samet2006foundations]. The table below lists notable
+packages encountered during Kiddo's development. It is non-exhaustive.
+
+: Related packages for point-based low-dimensional search.
+
+| Package | Language | Queries | Mutability | Design |
+|---|---|---|---|---|
+| Kiddo | Rust | kNN, radius, approximate nearest-one, best-n, periodic, and batch | mutable and immutable | pluggable strategies, optional SIMD, and serde/rkyv |
+| SciPy `cKDTree` [@scipy2020] [@scipy_kdtree] | Python | kNN, radius | immutable | SciPy integration |
+| `nanoflann` [@nanoflann2014] | C++ | kNN, radius | mutable and immutable | header-only, dynamic indices |
+| `kd-tree` [@terada_kdtree] | Rust | kNN, radius | immutable | custom points, parallel build |
+| `kdtree` [@kdtree_crate] | Rust | kNN | mutable | geospatial, custom distance |
+| `nabo` [@nabo_rs] [@elseberg2012nabo] | Rust | kNN | immutable | low-dimensional, no_std |
+| `neighbourhood` [@neighbourhood_crate] | Rust | radius | immutable | range-only, tunable brute force |
+| KDTREE 2 [@kennel2004kdtree2] | Fortran 95/C++ | kNN, radius | immutable | separate Fortran/C++ versions |
+| Pkd-tree [@men2025pkdtree] | C++ | kNN, range, and count | mutable | parallel, cache-efficient |
+
+The table separates ecosystem, query scope, mutability, and design. It is
+not a performance ranking. Kiddo is the only package here with independent stem
+and leaf strategies, so one query interface can be evaluated across storage,
+traversal, and result collection.
+
+FLANN provides the algorithmic lineage for nanoflann [@muja2014flann].
+Approximate nearest-neighbour search in fixed dimensions has a well-established
+theoretical basis [@arya1998approx]. Recent bounds show that exact search can
+degrade sharply as dimension grows [@bazzani2026bounds]. Specialised Fortran
+implementations continue to appear, including cosmokdtree, an OpenMP-parallel
+k-d tree for computational astrophysics [@monllor2026cosmokdtree].
 
 The SPRK-tree study independently evaluated Kiddo 5.0.3 in a comparison of
-spherical range-query implementations [@blasius2026sprk], identifying it among
-the strong performers in low-dimensional workloads. These results concern the
-pre-v6 implementation; the Spatial Bench comparison below evaluates the
-redesigned Kiddo 6.3.0.
+spherical range-query implementations [@blasius2026sprk]. In its low-dimensional
+benchmarks Kiddo was close to the SPRK-tree and placed second on the
+lower-dimensional clustering datasets. These results concern the pre-v6
+implementation. The Spatial Bench comparison below evaluates the redesigned
+Kiddo 6.3.0.
 
 Spatial Bench, also developed by Kiddo author Scott Donnelly, provides
 author-run comparisons with Rust, C++, and Python implementations [@spatialbench].
 A frozen comparison uses Kiddo 6.3.0, `nanoflann` at revision `7812aa0`, and Rust
-`nabo` 0.6.0 for single-threaded exact single-neighbour searches over three-dimensional
-uniform `f32` point clouds, using squared-Euclidean distance on an AMD Ryzen 5 8500GE.
+`nabo` 0.6.0 [@nabo_rs] for single-threaded exact single-neighbour searches
+over three-dimensional uniform `f32` point clouds, using squared-Euclidean
+distance on an AMD Ryzen 5 8500GE.
 Across nine tree sizes from 65,536 to 16,777,216 points and 1,000 repeated probes,
-`nanoflann`'s recorded median query times were approximately 2.2–2.6 times Kiddo's,
-and `nabo`'s were 2.5–3.0 times Kiddo's. The comparison retains fixed configurations
-and selects the latest recorded run for each. Timings include adapter and result
-handling against prebuilt indexes; construction is excluded. The public records
-and methodology document the configurations and timing boundaries.
+`nanoflann`'s recorded median query times were approximately 2.2 to 2.6 times
+Kiddo's, and `nabo`'s were 2.5 to 3.0 times Kiddo's. The comparison retains fixed
+configurations and selects the latest recorded run for each. Timings include
+adapter and result handling against prebuilt indexes. Construction is excluded.
+The public records and methodology document the configurations and timing
+boundaries.
 
-Kiddo's contribution is a Rust spatial-search library whose internal design is
-also intended to support data-structure research and performance tuning. The
-v6 redesign makes point storage and stem traversal independent extension points
-behind a shared tree and query interface. This lets researchers compare compatible
-strategies without maintaining separate search implementations or adapting their
-application to each experiment. Achieving this within Kiddo required replacing
-the divisions between earlier tree implementations, rather than adding isolated
-query methods. Maintaining and redesigning the existing package also preserves
-its connection to established research users. This architectural objective
-complements the application-facing functionality of the alternatives above;
-comparative performance still requires matched semantics, data, and build settings.
+Kiddo's contribution is a Rust spatial-search library whose internal design also
+supports data-structure research and performance tuning. The v6 redesign makes
+point storage and stem traversal independent extension points behind a shared
+tree and query interface. Retrofitting comparable extension points onto a
+fixed-layout crate would require breaking changes to its public types. Kiddo's
+existing user base made that transition possible without abandoning established
+applications. This lets users compare compatible strategies without maintaining separate
+search implementations. Comparative performance still
+requires matched semantics, data, and build settings.
 
 # Software design
 
-Version 6 was a substantial rewrite, developed over approximately a year to
+Version 6 was a substantial rewrite developed over approximately a year to
 address limitations of earlier versions. Previously, mutable and immutable trees
 and floating-point and fixed-point implementations were separated. The
 [v6 release notes](https://github.com/sdd-org/kiddo/blob/408e63820bea80811b21ed20c77ff545842d2bd9/CHANGELOG.md#600---2026-07-27)
@@ -115,42 +143,63 @@ describe the transition to one generic tree with independent stem and leaf
 strategies. The goal was an easier-to-use, more coherent library with a foundation
 for correctness, API stability, performance tuning, and experimentation.
 
-The architecture makes Kiddo a configurable k-d tree laboratory. A researcher
-can hold point storage fixed while changing stem ordering, traversal, or
-prefetch behaviour, or vary leaf storage while retaining a compatible stem
-strategy. Shared query semantics, reference tests, and benchmark infrastructure
-support comparisons of individual design choices. This separates experimental
-changes from the application using the index, reducing the work needed to
-explore alternative algorithms and data structures.
+## Architecture and extension points
 
-Stem strategies include breadth-first Eytzinger layouts and blocked Donnelly
-layouts with configurable block sizes, prefetching, and SIMD traversal variants.
-Leaf strategies determine storage layout and mutability, allowing read-optimised
-and updatable trees within the same architecture. Their separation exposes
+Kiddo exposes storage and traversal as configuration choices behind one query
+interface. Users can select the layout that fits their workload without changing
+the surrounding application. Shared query semantics, reference tests, and
+benchmark infrastructure support comparisons of individual design choices.
+
+## Storage and traversal
+
+Stem strategies include breadth-first Eytzinger layouts [@khuong2017array],
+which are usually fastest for larger static arrays, and blocked Donnelly layouts
+with configurable block sizes, prefetching, and SIMD traversal variants. Leaf
+strategies determine storage layout and mutability, allowing read-optimised and
+updatable trees within the same architecture. Their separation exposes
 memory-access and construction-versus-query trade-offs for investigation.
-Compile-time strategy selection avoids runtime trait-object dispatch in the
-core traversal, at the cost of more configurations to validate and additional
-compilation work. Convenience aliases provide defaults for ordinary use.
+Convenience aliases provide defaults for ordinary use. Compile-time strategy
+selection avoids runtime trait-object dispatch.
+
+The trait system is itself part of the contribution. Stem and leaf strategies
+are separate traits with associated layout and compatibility constraints, and
+the tree accepts only compatible combinations through the type system. This
+allows block-based traversal, prefetching, and SIMD kernels to share one
+implementation without runtime dispatch. The cost is a larger trait surface,
+more configuration combinations to validate, and longer compile times.
+
+## Query model
 
 Earlier APIs exposed separate methods for combinations of query options. The
-v6 builder composes query family, ordering, boundary behaviour, and result
-projection, with supported combinations expressed through type constraints.
-This reduces method proliferation and is intended to accommodate new options
-with fewer breaking changes. Reusing the same query model across strategies
-also gives correctness checks a common target. Brute-force comparisons,
-regression tests, and scalar paths support validation of specialised kernels;
-these checks help assess changes across the supported configuration space.
+v6 builder composes query family, ordering, inclusive or exclusive boundaries,
+periodic images, and result projection, with supported combinations expressed
+through type constraints. A new option can be added as another type-state stage
+rather than multiplying methods for every combination. Unsupported combinations
+fail at compile time, and the same query description can be reused across
+strategies or as a target for correctness tests. Results are written into
+sorted, threshold, or buffered collectors, and `within_unsorted_visit` avoids
+materialising them when the application consumes them directly. Reusing the
+same query model also gives correctness checks a common target.
+
+## Metrics and persistence
 
 Generic distance metrics separate stored coordinates from distance output,
-permitting wider arithmetic where supported without widening every stored point.
-This makes numerical trade-offs explicit, particularly for fixed-point data;
-exact searches still follow the chosen arithmetic's rounding and overflow
-behaviour. Periodic boundaries support repeating simulation domains, while
-optional Rayon threading supports construction and batch queries. Optional
-Serde serialization and `rkyv` archived querying let applications reuse built
-indexes; memory-mapped access and zero-copy deserialization permit tree data
-to be loaded very rapidly with a cold OS page cache and effectively instantly
-when the OS page cache is warm.
+permitting wider arithmetic without widening stored points. This makes numerical
+trade-offs explicit, particularly for fixed-point data. Exact searches still
+follow the chosen arithmetic's rounding and overflow behaviour. Periodic
+boundaries support repeating domains, and Rayon supports construction and batch
+queries.
+Serde and `rkyv` let applications reuse built indexes. Memory-mapped zero-copy
+loading removes deserialisation, but a cold page cache still incurs page faults
+and storage I/O. Loading is effectively instant only once pages are cached.
+
+## Correctness and performance assurance
+
+Performance is a maintained property: differential and fuzz tests, brute-force
+comparisons, regression tests, and scalar paths guard against silent regressions,
+supported by continuous benchmark reporting, profiling hooks, and competitor
+matrices. SIMD and prefetch kernels are gated, with scalar fallbacks, and unsafe
+code is checked across the feature matrix, MSRV, and wasm builds.
 
 # Research impact statement
 

@@ -44,6 +44,7 @@
 @misc{scipy_kdtree,
   author = {{SciPy developers}},
   title = {{scipy.spatial.KDTree}: {SciPy} Reference Documentation},
+  year = {2026},
   url = {https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html},
   urldate = {2026-11-09}
 }
@@ -54,12 +55,13 @@
   year = {2014},
   url = {https://github.com/jlblancoc/nanoflann},
   urldate = {2026-11-09},
-  note = {Citation for the original software release}
+  note = {Citation for the original software release. The comparison in this paper uses revision 7812aa0}
 }
 
 @misc{terada_kdtree,
   author = {Terada, Yuichiro},
   title = {kd-tree: A k-Dimensional Tree Library for {Rust}},
+  year = {2025},
   url = {https://github.com/u1roh/kd-tree},
   urldate = {2026-11-09},
   note = {Documentation consulted for version 0.6.2: https://docs.rs/kd-tree/0.6.2/kd_tree/}
@@ -92,6 +94,7 @@
 @misc{barnes_nblast,
   author = {Barnes, Chris L.},
   title = {nblast-rs: {Rust} Implementation of {NBLAST} for Neuron Morphology Comparisons},
+  year = {2026},
   url = {https://github.com/clbarnes/nblast-rs/tree/1e529de557029efc2dd83d0fb25bc7ef69b7c420},
   urldate = {2026-11-09},
   note = {Software repository; Kiddo dependency and backend inspected at commit 1e529de557029efc2dd83d0fb25bc7ef69b7c420}
@@ -111,9 +114,10 @@
 @misc{spatialbench,
   author = {Donnelly, Scott},
   title = {Spatial Bench: Comparative Benchmarks for Spatial Index Libraries},
+  year = {2026},
   url = {https://spatial-bench.org},
   urldate = {2026-11-09},
-  note = {Author-run benchmarks. Methodology: https://github.com/spatial-bench/spatial-bench-web/blob/main/docs/methodology.md; measurement records pinned at https://github.com/spatial-bench/spatial-bench-results/tree/85a6c71e56bbe76065b1914a767d49620203079e}
+  note = {Author-run benchmarks. Methodology: https://github.com/spatial-bench/spatial-bench-web/blob/ff463cb858dcc973c82ea40381f30f10abba2cb8/docs/methodology.md. Measurement records pinned at https://github.com/spatial-bench/spatial-bench-results/tree/85a6c71e56bbe76065b1914a767d49620203079e}
 }
 
 @misc{carter2026molentropy,
@@ -135,6 +139,134 @@
   doi = {10.26434/chemrxiv.15003769/v1},
   url = {https://doi.org/10.26434/chemrxiv.15003769/v1},
   note = {Preprint, version 1}
+}
+
+@misc{kdtree_crate,
+  author = {{mrhooray}},
+  title = {kdtree: K-Dimensional Tree in {Rust} for Fast Geospatial Indexing and Nearest Neighbors Lookup},
+  year = {2025},
+  version = {0.8.1},
+  url = {https://github.com/mrhooray/kdtree-rs}
+}
+
+@misc{nabo_rs,
+  author = {{Enlightware GmbH} and Magnenat, St{\'e}phane},
+  title = {nabo: A Fast K Nearest Neighbour Library for Low-Dimensional Spaces},
+  year = {2026},
+  version = {0.6.0},
+  url = {https://github.com/enlightware/nabo-rs},
+  note = {Pure Rust reimplementation of the C++ nabo library. See Elseberg et al. 2012 for the original evaluation}
+}
+
+@misc{neighbourhood_crate,
+  author = {{HOminus}},
+  title = {neighbourhood: Fixed-Size K-d Trees for Large Datasets},
+  year = {2025},
+  version = {0.2.0},
+  url = {https://github.com/HOminus/neighbourhood}
+}
+
+@article{khuong2017array,
+  author = {Khuong, Paul-Virak and Morin, Pat},
+  title = {Array Layouts for Comparison-Based Searching},
+  journal = {ACM Journal of Experimental Algorithmics},
+  year = {2017},
+  volume = {22},
+  pages = {1--39},
+  doi = {10.1145/3053370}
+}
+
+@misc{kennel2004kdtree2,
+  author = {Kennel, Matthew B.},
+  title = {{KDTREE} 2: {Fortran} 95 and {C++} Software to Efficiently Search for Near Neighbors in a Multi-Dimensional {Euclidean} Space},
+  year = {2004},
+  eprint = {physics/0408067},
+  archivePrefix = {arXiv},
+  doi = {10.48550/arXiv.physics/0408067},
+  url = {https://arxiv.org/abs/physics/0408067}
+}
+
+@article{men2025pkdtree,
+  author = {Men, Ziyang and Shen, Zheqi and Gu, Yan and Sun, Yihan},
+  title = {Parallel kd-tree with Batch Updates},
+  journal = {Proceedings of the ACM on Management of Data},
+  year = {2025},
+  volume = {3},
+  pages = {1--26},
+  doi = {10.1145/3709712}
+}
+
+@article{friedman1977,
+  author = {Friedman, Jerome H. and Bentley, Jon Louis and Finkel, Raphael A.},
+  title = {An Algorithm for Finding Best Matches in Logarithmic Expected Time},
+  journal = {ACM Transactions on Mathematical Software},
+  year = {1977},
+  volume = {3},
+  number = {3},
+  pages = {209--226},
+  doi = {10.1145/355744.355745}
+}
+
+@article{muja2014flann,
+  author = {Muja, Marius and Lowe, David G.},
+  title = {Scalable Nearest Neighbor Algorithms for High Dimensional Data},
+  journal = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  year = {2014},
+  volume = {36},
+  number = {11},
+  pages = {2227--2240},
+  doi = {10.1109/TPAMI.2014.2321376}
+}
+
+@article{elseberg2012nabo,
+  author = {Elseberg, Jan and Magnenat, St{\'e}phane and Siegwart, Roland and N{\"u}chter, Andreas},
+  title = {Comparison of nearest-neighbor-search strategies and implementations for efficient shape registration},
+  journal = {Journal of Software Engineering for Robotics},
+  year = {2012},
+  volume = {3},
+  number = {1},
+  pages = {2--12},
+  doi = {10.6092/JOSER_2012_03_01_P2}
+}
+
+@article{arya1998approx,
+  author = {Arya, Sunil and Mount, David M. and Netanyahu, Nathan S. and Silverman, Ruth and Wu, Angela Y.},
+  title = {An optimal algorithm for approximate nearest neighbor searching in fixed dimensions},
+  journal = {Journal of the ACM},
+  year = {1998},
+  volume = {45},
+  number = {6},
+  pages = {891--923},
+  doi = {10.1145/293347.293348}
+}
+
+@misc{bazzani2026bounds,
+  author = {Bazzani, Marco and Dasgupta, Sanjoy},
+  title = {Performance bounds for nearest neighbor search with k-d trees},
+  year = {2026},
+  eprint = {2605.11313},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.DS},
+  doi = {10.48550/arXiv.2605.11313},
+  url = {https://arxiv.org/abs/2605.11313}
+}
+
+@book{samet2006foundations,
+  author = {Samet, Hanan},
+  title = {Foundations of Multidimensional and Metric Data Structures},
+  year = {2006},
+  publisher = {Morgan Kaufmann},
+  address = {San Francisco, CA, USA}
+}
+
+@article{monllor2026cosmokdtree,
+  author = {Monllor-Berbegal, {\'O}scar and Vall{\'e}s-P{\'e}rez, David and Planelles, Susana and Quilis, Vicent},
+  title = {cosmokdtree: A flexible OpenMP-parallelized k-d tree for computational astrophysics applications},
+  journal = {Astronomy and Computing},
+  year = {2026},
+  volume = {57},
+  pages = {101175},
+  doi = {10.1016/j.ascom.2026.101175}
 }
 
 @inproceedings{blasius2026sprk,
